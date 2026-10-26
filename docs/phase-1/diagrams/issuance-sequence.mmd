@@ -1,0 +1,68 @@
+sequenceDiagram
+    autonumber
+    %% PKI Issuing CA System - Certificate Issuance Sequence
+    
+    actor EE as End Entity (Client)
+    actor RA as RA Operator
+    participant Gateway as API Gateway / Spring Security
+    participant EnrollSvc as EnrollmentService
+    participant CsrParser as CsrParserService (Bouncy Castle)
+    participant RaSvc as RaApprovalService
+    participant CaSvc as CaIssuanceService
+    participant HSM as Pkcs11HsmAdapter (SoftHSM2 / Physical HSM)
+    participant DB as MySQL Database
+    participant Audit as AuditService
+
+    Note over EE: Client generates Asymmetric Key Pair locally<br/>Private key NEVER leaves client device
+    EE->>EE: Generate PKCS#10 CSR with local private key
+    
+    EE->>Gateway: POST /api/v1/enrollment/requests<br/>[JWT Auth + CSR PEM + ProfileCode]
+    Gateway->>EnrollSvc: processEnrollmentRequest(dto)
+    EnrollSvc->>CsrParser: parseAndVerifyCsr(csrPem)
+    Note over CsrParser: Verify proof-of-possession signature<br/>Extract Subject DN and SANs
+    CsrParser-->>EnrollSvc: CsrVerificationResult (Valid=True)
+    
+    EnrollSvc->>DB: INSERT INTO enrollment_requests (status='PENDING_REVIEW')
+    EnrollSvc->>Audit: recordEvent('ENROLLMENT_SUBMITTED')
+    Audit->>DB: INSERT INTO audit_events (with HMAC chain)
+    EnrollSvc-->>EE: 201 Created (requestId=1042, status='PENDING_REVIEW')
+    
+    Note over RA: RA Operator logs in and reviews pending queue
+    RA->>Gateway: GET /api/v1/enrollment/requests?status=PENDING_REVIEW
+    Gateway-->>RA: Returns pending requests list
+    
+    RA->>Gateway: POST /api/v1/ra/requests/1042/approve<br/>[Comment: "Identity & SANs verified"]
+    Gateway->>RaSvc: approveRequest(1042, reviewerId, comment)
+    Note over RaSvc: Enforce Separation of Duties:<br/>assert(requesterId != reviewerId)
+    RaSvc->>DB: UPDATE enrollment_requests SET status='APPROVED'
+    RaSvc->>DB: INSERT INTO request_approvals (requestId=1042, action='APPROVED')
+    RaSvc->>Audit: recordEvent('RA_REQUEST_APPROVED')
+    RaSvc-->>RA: 200 OK (Request Approved)
+
+    Note over CaSvc: Auto-trigger or Admin-trigger Issuance
+    RA->>Gateway: POST /api/v1/ca/requests/1042/issue
+    Gateway->>CaSvc: issueCertificate(1042)
+    CaSvc->>DB: Query request #1042 (Assert status == APPROVED)
+    CaSvc->>CaSvc: Generate 128-bit random serial number via SecureRandom
+    CaSvc->>CaSvc: Construct X509v3CertificateBuilder (Subject, Issuer, Validity, Extensions)
+    
+    CaSvc->>HSM: signCertificate(certBuilder, keyAlias)
+    Note over HSM: Token executes digital signature inside boundary.<br/>Private key bytes never enter host memory.
+    HSM-->>CaSvc: Signed X509Certificate
+    
+    rect rgb(240, 248, 255)
+        Note over CaSvc,DB: Atomic Relational Database Transaction
+        CaSvc->>DB: INSERT INTO certificates (serial, subject, pem, ...)
+        CaSvc->>DB: UPDATE enrollment_requests SET status='ISSUED'
+        CaSvc->>Audit: recordEvent('CERTIFICATE_ISSUED', certId)
+        Audit->>DB: INSERT INTO audit_events (...) with HMAC chain
+    end
+    
+    CaSvc-->>Gateway: 201 Created (Certificate summary & serialNumber)
+    Gateway-->>RA: 201 Created
+    
+    EE->>Gateway: GET /api/v1/certificates/{serialNumber}/download?format=pem
+    Gateway->>CaSvc: downloadCertificate(serialNumber)
+    CaSvc->>DB: Query certificate by serial
+    DB-->>CaSvc: Certificate entity
+    CaSvc-->>EE: Returns X.509 Certificate PEM

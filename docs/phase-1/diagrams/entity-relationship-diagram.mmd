@@ -1,0 +1,224 @@
+erDiagram
+    %% PKI Issuing CA System - Normalized Entity Relationship Diagram
+    
+    USERS ||--o{ USER_ROLES : "assigned"
+    ROLES ||--o{ USER_ROLES : "grouped_in"
+    USERS ||--o{ USER_TOKENS : "owns"
+    
+    USERS ||--o{ ENROLLMENT_REQUESTS : "submits"
+    CERTIFICATE_PROFILES ||--o{ ENROLLMENT_REQUESTS : "governs"
+    CA_AUTHORITIES ||--o{ ENROLLMENT_REQUESTS : "targeted_to"
+    
+    ENROLLMENT_REQUESTS ||--o{ REQUEST_APPROVALS : "reviewed_by"
+    USERS ||--o{ REQUEST_APPROVALS : "evaluates"
+    
+    ENROLLMENT_REQUESTS ||--o| CERTIFICATES : "results_in"
+    CA_AUTHORITIES ||--o{ CERTIFICATES : "signs"
+    
+    CERTIFICATES ||--o| REVOCATION_RECORDS : "revoked_by"
+    USERS ||--o{ REVOCATION_RECORDS : "initiated_by"
+    
+    CA_AUTHORITIES ||--o{ CRL_RECORDS : "issues"
+    
+    USERS ||--o{ AUDIT_EVENTS : "triggers"
+    USERS ||--o{ NOTIFICATION_LOGS : "receives"
+    USERS ||--o{ BACKUP_RECORDS : "initiates"
+
+    USERS {
+        BIGINT id PK
+        VARCHAR username UK
+        VARCHAR email UK
+        VARCHAR password_hash
+        VARCHAR full_name
+        VARCHAR status
+        INT failed_attempts
+        DATETIME locked_until
+        DATETIME created_at
+        DATETIME updated_at
+        INT version
+    }
+
+    ROLES {
+        BIGINT id PK
+        VARCHAR name UK
+        VARCHAR description
+    }
+
+    USER_ROLES {
+        BIGINT user_id PK,FK
+        BIGINT role_id PK,FK
+    }
+
+    USER_TOKENS {
+        BIGINT id PK
+        BIGINT user_id FK
+        VARCHAR token_hash UK
+        VARCHAR token_type
+        DATETIME expires_at
+        BOOLEAN revoked
+        DATETIME created_at
+    }
+
+    CA_AUTHORITIES {
+        BIGINT id PK
+        VARCHAR ca_name UK
+        VARCHAR subject_dn
+        VARCHAR issuer_dn
+        VARCHAR serial_number UK
+        VARCHAR hsm_key_alias UK
+        VARCHAR hsm_slot_id
+        VARCHAR algorithm
+        TEXT certificate_pem
+        TEXT chain_pem
+        DATETIME not_before
+        DATETIME not_after
+        VARCHAR status
+        INT crl_validity_hours
+        DATETIME created_at
+        INT version
+    }
+
+    CERTIFICATE_PROFILES {
+        BIGINT id PK
+        VARCHAR profile_code UK
+        VARCHAR profile_name
+        VARCHAR profile_type
+        INT default_validity_days
+        INT max_validity_days
+        JSON allowed_key_types
+        JSON key_usages
+        JSON extended_key_usages
+        BOOLEAN require_san
+        BOOLEAN allow_wildcards
+        BOOLEAN is_active
+        DATETIME created_at
+        INT version
+    }
+
+    ENROLLMENT_REQUESTS {
+        BIGINT id PK
+        BIGINT requester_id FK
+        BIGINT ca_id FK
+        BIGINT profile_id FK
+        VARCHAR status
+        VARCHAR subject_dn
+        JSON san_entries
+        TEXT csr_pem
+        VARCHAR public_key_algorithm
+        INT key_length
+        VARCHAR public_key_fingerprint
+        INT validity_days
+        VARCHAR rejection_reason
+        DATETIME created_at
+        DATETIME updated_at
+        INT version
+    }
+
+    REQUEST_APPROVALS {
+        BIGINT id PK
+        BIGINT request_id FK
+        BIGINT reviewer_id FK
+        VARCHAR action
+        VARCHAR review_stage
+        TEXT reviewer_comment
+        VARCHAR client_ip
+        DATETIME reviewed_at
+    }
+
+    CERTIFICATES {
+        BIGINT id PK
+        BIGINT ca_id FK
+        BIGINT request_id FK,UK
+        VARCHAR serial_number UK
+        VARCHAR subject_dn
+        VARCHAR issuer_dn
+        JSON san_entries
+        DATETIME not_before
+        DATETIME not_after
+        TEXT certificate_pem
+        TEXT public_key_pem
+        VARCHAR public_key_fingerprint
+        VARCHAR fingerprint_sha256 UK
+        VARCHAR status
+        DATETIME created_at
+        INT version
+    }
+
+    REVOCATION_RECORDS {
+        BIGINT id PK
+        BIGINT certificate_id FK,UK
+        VARCHAR serial_number UK
+        VARCHAR reason_code
+        DATETIME revocation_date
+        DATETIME invalidity_date
+        BIGINT initiated_by FK
+        BIGINT approved_by FK
+        TEXT comments
+        DATETIME created_at
+    }
+
+    CRL_RECORDS {
+        BIGINT id PK
+        BIGINT ca_id FK
+        BIGINT crl_number UK
+        DATETIME this_update
+        DATETIME next_update
+        INT revoked_entry_count
+        TEXT crl_pem
+        VARCHAR crl_file_path
+        VARCHAR signature_algorithm
+        DATETIME generated_at
+    }
+
+    AUDIT_EVENTS {
+        BIGINT id PK
+        BIGINT sequence_number UK
+        DATETIME timestamp
+        BIGINT principal_id FK
+        VARCHAR principal_name
+        VARCHAR principal_role
+        VARCHAR client_ip
+        VARCHAR user_agent
+        VARCHAR action
+        VARCHAR resource_type
+        VARCHAR resource_id
+        VARCHAR outcome
+        VARCHAR error_code
+        JSON details_json
+        VARCHAR prev_hash
+        VARCHAR record_hash UK
+    }
+
+    SYSTEM_CONFIGURATIONS {
+        BIGINT id PK
+        VARCHAR config_key UK
+        TEXT config_value
+        VARCHAR data_type
+        BOOLEAN is_encrypted
+        VARCHAR description
+        DATETIME updated_at
+    }
+
+    NOTIFICATION_LOGS {
+        BIGINT id PK
+        BIGINT recipient_id FK
+        VARCHAR recipient_email
+        VARCHAR event_type
+        VARCHAR subject
+        VARCHAR delivery_status
+        TEXT error_details
+        DATETIME sent_at
+    }
+
+    BACKUP_RECORDS {
+        BIGINT id PK
+        VARCHAR backup_file_name UK
+        VARCHAR backup_type
+        BIGINT file_size_bytes
+        VARCHAR checksum_sha256
+        VARCHAR storage_location
+        BIGINT initiated_by FK
+        VARCHAR status
+        DATETIME started_at
+        DATETIME completed_at
+    }

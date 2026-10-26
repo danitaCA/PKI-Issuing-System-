@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:pki_test_db;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+app:
+  security:
+    jwt:
+      secret: TestSecretKeyForUnitAndIntegrationTestsOnlyMustBe32BytesOrLonger!
+      expiration-ms: 300000 # 5 minutes
+      refresh-expiration-ms: 1800000 # 30 minutes
+      issuer: pki-test
+    lockout:
+      max-failed-attempts: 5
+      duration-minutes: 30
+    bootstrap-admin:
+      enabled: true
+      username: test_ca_admin
+      email: test-admin@pki.test
+      password: TestAdminSecurePass123!
+      full-name: "Test CA Administrator"
+  hsm:
+    enabled: ${HSM_ENABLED:false}
+    library-path: ${SOFTHSM2_LIB:C:/SoftHSM2/lib/softhsm2-x64.dll}
+    slot-list-index: ${SOFTHSM2_SLOT_INDEX:1}
+    pin: ${SOFTHSM2_PIN:123456}
+    provider-name: SoftHSM-TestProvider
+  ca:
+    auto-bootstrap:
+      enabled: true

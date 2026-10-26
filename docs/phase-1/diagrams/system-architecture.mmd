@@ -1,0 +1,57 @@
+graph TD
+    %% PKI Issuing CA System - System Architecture
+    
+    subgraph ClientLayer["Client & Relying Party Tier"]
+        SPA["Vue 3 + TypeScript Single Page App<br/>(Vite, Vue Router, Pinia)"]
+        CLI["Automation Scripts / REST Clients"]
+        Validators["Relying Party Applications<br/>(CRL & OCSP Clients)"]
+    end
+
+    subgraph SecurityTransport["Transport & API Gateway Layer"]
+        Filter["Spring Security Filter Chain<br/>(JwtAuthFilter, RateLimitingFilter, CORS/CSRF)"]
+    end
+
+    subgraph ApplicationCore["Application & Domain Services (Modular Monolith)"]
+        AuthMod["Authentication & RBAC Module<br/>(UserService, TokenService)"]
+        RAMod["Registration Authority Module<br/>(CsrParserService, RaApprovalService)"]
+        CAMod["CA Engine & Policy Engine<br/>(CaIssuanceService, ProfileService)"]
+        ValMod["Validation & Revocation Module<br/>(ValidationService, RevocationService)"]
+        CRLMod["CRL & OCSP Responder Module<br/>(CrlService, OcspResponderService)"]
+        AuditMod["Audit & Reporting Module<br/>(AuditService, ChainedHasher)"]
+        AdminMod["System Admin & Diagnostics<br/>(ConfigService, BackupService)"]
+    end
+
+    subgraph CryptographicAbstraction["Cryptographic Abstraction Layer"]
+        CryptoPort["CryptoProvider (Java Interface)"]
+        HSMAdapter["Pkcs11HsmAdapter<br/>(SunPKCS11 JCA Provider)"]
+        BCAdapter["BouncyCastleProvider<br/>(ASN.1 Codec, CSR Parser)"]
+    end
+
+    subgraph StorageHardware["Persistence & Cryptographic Boundary"]
+        MySQL[("MySQL 8.x Database<br/>(InnoDB Engine, TLS, Flyway Migrations)")]
+        CRLStore["Public CRL File Store<br/>(/var/www/pki/crl)"]
+        HSMToken["PKCS#11 Secure Token Boundary<br/>(SoftHSM2 Dev / Physical HSM Prod)<br/>CKA_EXTRACTABLE=FALSE"]
+    end
+
+    SPA -->|HTTPS / JSON REST| Filter
+    CLI -->|HTTPS / JSON REST| Filter
+    Validators -->|HTTP / CRL & OCSP| Filter
+
+    Filter --> AuthMod
+    Filter --> RAMod
+    Filter --> CAMod
+    Filter --> ValMod
+    Filter --> CRLMod
+    Filter --> AuditMod
+    Filter --> AdminMod
+
+    CAMod --> CryptoPort
+    CRLMod --> CryptoPort
+    ValMod --> CryptoPort
+
+    CryptoPort --> HSMAdapter
+    CryptoPort --> BCAdapter
+
+    HSMAdapter -->|PKCS#11 C-API JNI| HSMToken
+    RAMod & CAMod & ValMod & CRLMod & AuditMod & AdminMod -->|Spring Data JPA / HikariCP| MySQL
+    CRLMod -->|Write CRL DER/PEM| CRLStore

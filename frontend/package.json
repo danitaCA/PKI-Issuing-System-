@@ -1,0 +1,27 @@
+{
+  "name": "pki-ca-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3",
+    "pinia": "^2.2.2",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vue-tsc": "^2.1.4",
+    "vitest": "^2.0.5",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^25.0.0"
+  }
+}

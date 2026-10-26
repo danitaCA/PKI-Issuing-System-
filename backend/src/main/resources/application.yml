@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: pki-issuing-ca
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 25
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# Management & Actuator Security
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      roles: ROLE_CA_ADMIN,ROLE_SECURITY_OFFICER
+  info:
+    env:
+      enabled: false
+
+# Application Custom Security Configuration
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:DefaultDevSecretKeyMustBeOverriddenInProductionAndMustBeAtLeast32Bytes!}
+      expiration-ms: ${JWT_EXPIRATION_MS:900000} # 15 minutes
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:28800000} # 8 hours
+      issuer: pki-issuing-ca
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      allow-credentials: true
+      max-age: 3600
+    lockout:
+      max-failed-attempts: 5
+      duration-minutes: 30
+    bootstrap-admin:
+      enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}
+      username: ${BOOTSTRAP_ADMIN_USERNAME:ca_admin}
+      email: ${BOOTSTRAP_ADMIN_EMAIL:ca-admin@pki.internal.corp}
+      password: ${BOOTSTRAP_ADMIN_PASSWORD:AdminInitialPassword123!}
+      full-name: ${BOOTSTRAP_ADMIN_FULL_NAME:PKI System Administrator}
+  hsm:
+    enabled: ${HSM_ENABLED:true}
+    library-path: ${SOFTHSM2_LIB:C:/SoftHSM2/lib/softhsm2-x64.dll}
+    slot-list-index: ${SOFTHSM2_SLOT_INDEX:1}
+    pin: ${SOFTHSM2_PIN:123456}
+    provider-name: ${HSM_PROVIDER_NAME:SoftHSM-IssuingCA}
+  ca:
+    auto-bootstrap:
+      enabled: ${CA_AUTO_BOOTSTRAP_ENABLED:true}
+
+# SpringDoc OpenAPI Documentation
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha

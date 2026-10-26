@@ -1,0 +1,48 @@
+graph TD
+    %% PKI Issuing CA System - Deployment Architecture
+    
+    subgraph HostEnvironment["Docker Compose Host Runtime Environment"]
+        
+        subgraph WebContainer["Container: pki-frontend (Nginx Alpine)"]
+            Nginx["Nginx Reverse Proxy & Static Web Server<br/>Ports: 80 / 443 (TLS Terminated)"]
+            VueStatic["Compiled Vue 3 SPA Assets<br/>(/usr/share/nginx/html)"]
+            Nginx --> VueStatic
+        end
+
+        subgraph AppContainer["Container: pki-backend (OpenJDK 21 LTS)"]
+            SpringApp["Spring Boot 3 Modular Monolith<br/>(Port 8080 internal)"]
+            SunPKCS11["SunPKCS11 Security Provider"]
+            SoftHSMLib["SoftHSM2 Native Library<br/>(/usr/lib/softhsm/libsofthsm2.so)"]
+            
+            SpringApp --> SunPKCS11
+            SunPKCS11 --> SoftHSMLib
+        end
+
+        subgraph DBContainer["Container: pki-mysql (MySQL 8.0 / 8.4 LTS)"]
+            MySQLServer["MySQL Database Server<br/>Port 3306 (Internal TLS)"]
+        end
+
+        subgraph PersistentVolumes["Host Mounted Docker Volumes"]
+            MySQLVol[("Volume: mysql_data<br/>/var/lib/mysql")]
+            SoftHSMVol[("Volume: softhsm_tokens<br/>/var/lib/softhsm/tokens")]
+            CrlVol[("Volume: crl_distribution<br/>/var/www/pki/crl")]
+        end
+    end
+
+    subgraph ExternalClients["External Network"]
+        Browser["User Web Browser (HTTPS)"]
+        RelyingParty["Relying Party Verifier (HTTP)"]
+        Prometheus["Prometheus Monitoring"]
+    end
+
+    Browser -->|HTTPS 443| Nginx
+    RelyingParty -->|HTTP /crl or /api/v1/ocsp| Nginx
+    Prometheus -->|HTTP /actuator/prometheus| Nginx
+
+    Nginx -->|Proxy /api to http://pki-backend:8080| SpringApp
+    Nginx -->|Serve static CRL files| CrlVol
+    
+    SpringApp -->|JDBC TLS requireSSL=true| MySQLServer
+    SpringApp -->|Write CRL Files| CrlVol
+    SoftHSMLib -->|Read/Write Token Slot 0| SoftHSMVol
+    MySQLServer --> MySQLVol

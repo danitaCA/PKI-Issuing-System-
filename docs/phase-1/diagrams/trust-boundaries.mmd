@@ -1,0 +1,35 @@
+graph TB
+    %% PKI Issuing CA System - Trust Boundaries & Enclaves
+    
+    subgraph UntrustedZone["Untrusted Network Enclave"]
+        ClientBrowser["End Entity Web Browser"]
+        ApiConsumer["REST API Automation Clients"]
+        PublicVerifier["Public Relying Parties (CRL / OCSP)"]
+    end
+
+    subgraph DmzEnclave["Demilitarized Zone (DMZ)"]
+        ReverseProxy["Nginx TLS Terminator & Reverse Proxy<br/>- Enforces TLS 1.3 / 1.2<br/>- Serves static /crl files<br/>- Rate limits incoming requests"]
+    end
+
+    subgraph ApplicationEnclave["Application Trust Enclave (Secure Private Subnet)"]
+        AppServer["Spring Boot 3 PKI Application<br/>- Stateless SecurityFilterChain (JWT)<br/>- Separation of Duties Validator<br/>- Profile Policy Engine<br/>- Bouncy Castle ASN.1 Codec"]
+    end
+
+    subgraph DataStorageEnclave["Data Persistence Enclave (Private Isolated Subnet)"]
+        MySQLCluster[("MySQL 8.x Database Cluster<br/>- Encrypted at rest (InnoDB tablespaces)<br/>- Encrypted in transit (TLS JDBC)<br/>- ZERO private keys in schema")]
+        BackupStorage[("Encrypted Backup Volume<br/>- AES-256-GCM database dumps")]
+    end
+
+    subgraph CryptographicHardwareEnclave["Hardware Security Enclave (FIPS 140-2 Level 3 Boundary)"]
+        PKCS11Token["PKCS#11 Token Slot 0<br/>(SoftHSM2 Dev / Physical HSM Prod)<br/>- PIN-Gated User Authentication<br/>- CKA_EXTRACTABLE = FALSE<br/>- CKA_SENSITIVE = TRUE<br/>- CA Private Signing Key Never Leaves Hardware"]
+    end
+
+    ClientBrowser -->|HTTPS / Port 443| ReverseProxy
+    ApiConsumer -->|HTTPS / Port 443| ReverseProxy
+    PublicVerifier -->|HTTP / Port 80 /crl & /ocsp| ReverseProxy
+
+    ReverseProxy -->|Internal TLS / Port 8443| AppServer
+    
+    AppServer -->|JDBC TLS / Port 3306| MySQLCluster
+    AppServer -->|Encrypted Dump Pipeline| BackupStorage
+    AppServer -->|PKCS#11 C-API via JNI| PKCS11Token

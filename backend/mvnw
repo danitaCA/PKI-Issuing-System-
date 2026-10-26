@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Maven wrapper script for Unix environments
+if command -v mvn >/dev/null 2>&1; then
+    exec mvn "$@"
+fi
+
+M2_WRAPPER=$(find "$HOME/.m2/wrapper/dists" -name "mvn" -type f -perm -111 2>/dev/null | head -n 1)
+if [ -n "$M2_WRAPPER" ]; then
+    exec "$M2_WRAPPER" "$@"
+fi
+
+echo "ERROR: Maven not found on PATH or ~/.m2" >&2
+exit 1

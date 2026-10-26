@@ -1,0 +1,35 @@
+stateDiagram-v2
+    %% PKI Issuing CA System - Certificate Lifecycle State Machine
+    
+    [*] --> SUBMITTED : User / Client submits PKCS#10 CSR
+    
+    state "Enrollment Request FSM" as RequestFSM {
+        SUBMITTED --> PENDING_REVIEW : Cryptographic signature valid & key length >= 2048
+        SUBMITTED --> FAILED : Invalid signature or malformed ASN.1
+        
+        PENDING_REVIEW --> APPROVED : RA Operator approves (Separation of duties verified)
+        PENDING_REVIEW --> REJECTED : RA Operator rejects with mandatory comment
+        PENDING_REVIEW --> CANCELLED : Requester withdraws request
+        
+        APPROVED --> ISSUING : Signing triggered
+        ISSUING --> ISSUED : HSM signature succeeds & DB committed
+        ISSUING --> FAILED : HSM signing error / DB write rollback
+    }
+    
+    ISSUED --> ACTIVE : Certificate recorded in repository
+    
+    state "Certificate Status FSM" as CertFSM {
+        ACTIVE --> SUSPENDED : Revocation with reason 'certificateHold'
+        SUSPENDED --> ACTIVE : Unhold approved ('removeFromCRL')
+        
+        ACTIVE --> REVOKED : Revocation approved (Permanent reason: keyCompromise, etc.)
+        SUSPENDED --> REVOKED : Permanent revocation confirmed
+        
+        ACTIVE --> EXPIRED : System time passes 'notAfter' timestamp
+    }
+    
+    REJECTED --> [*]
+    CANCELLED --> [*]
+    FAILED --> [*]
+    REVOKED --> [*]
+    EXPIRED --> [*]

@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    %% PKI Issuing CA System - Revocation and CRL Publication Sequence
+    
+    actor Requester as Cert Owner / Security Officer
+    participant Gateway as API Gateway / Spring Security
+    participant RevSvc as RevocationService
+    participant CrlSvc as CrlService
+    participant HSM as Pkcs11HsmAdapter
+    participant DB as MySQL Database
+    participant FS as Public File Store (/crl)
+    participant RP as Relying Party (Browser / Client)
+
+    Requester->>Gateway: POST /api/v1/certificates/{serialNumber}/revoke<br/>{reasonCode: "keyCompromise", comments: "Stolen"}
+    Gateway->>RevSvc: revokeCertificate(serialNumber, reason, comments, userId)
+    
+    rect rgb(255, 240, 245)
+        Note over RevSvc,DB: Atomic Database Transaction
+        RevSvc->>DB: UPDATE certificates SET status='REVOKED' WHERE serial_number=...
+        RevSvc->>DB: INSERT INTO revocation_records (serial, reason, date, initiated_by)
+        RevSvc->>DB: INSERT INTO audit_events ('CERTIFICATE_REVOKED') with HMAC chain
+    end
+    RevSvc-->>Gateway: 200 OK (Status: REVOKED)
+    Gateway-->>Requester: 200 OK
+    
+    Note over CrlSvc: Automated Cron or On-Demand Trigger
+    CrlSvc->>CrlSvc: initiateCrlGeneration()
+    CrlSvc->>DB: SELECT * FROM revocation_records WHERE ca_id=...
+    DB-->>CrlSvc: Active revocation list
+    
+    CrlSvc->>CrlSvc: Construct X509v2CRLBuilder (thisUpdate, nextUpdate, CRLNumber)
+    CrlSvc->>HSM: signCrl(crlBuilder, caKeyAlias)
+    Note over HSM: Signs CRL inside HSM token boundary
+    HSM-->>CrlSvc: Signed X509CRL object
+    
+    CrlSvc->>DB: INSERT INTO crl_records (crl_number, this_update, next_update, pem)
+    CrlSvc->>FS: Write binary DER file to /var/www/pki/crl/issuing-ca.crl
+    CrlSvc->>FS: Write PEM file to /var/www/pki/crl/issuing-ca.crl.pem
+    
+    Note over RP: Relying party verifies client certificate
+    RP->>FS: HTTP GET /crl/issuing-ca.crl
+    FS-->>RP: Returns latest signed binary CRL
+    RP->>RP: Independently checks if serialNumber is in CRL

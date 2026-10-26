@@ -1,0 +1,30 @@
+services:
+  pki-mysql:
+    image: mysql:8.0.36
+    container_name: pki-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-RootPassSecure123!}
+      MYSQL_DATABASE: ${DB_NAME:-pki_ca_db}
+      MYSQL_USER: ${DB_USER:-pki_app_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-AppPassSecure123!}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-RootPassSecure123!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mysql_dev_data:
+    name: pki_ca_mysql_dev_data
