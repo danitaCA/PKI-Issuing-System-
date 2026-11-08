@@ -59,6 +59,21 @@ public class Certificate {
     @Column(name = "status", length = 32, nullable = false)
     private CertificateStatus status = CertificateStatus.ACTIVE;
 
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
+
+    @Column(name = "revocation_reason", length = 50)
+    private String revocationReason;
+
+    @Column(name = "revocation_invalidity_date")
+    private LocalDateTime revocationInvalidityDate;
+
+    @Column(name = "renewed_from_serial", length = 64)
+    private String renewedFromSerial;
+
+    @Column(name = "renewed_to_serial", length = 64)
+    private String renewedToSerial;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -186,6 +201,46 @@ public class Certificate {
 
     public void setStatus(CertificateStatus status) {
         this.status = status;
+    }
+
+    public LocalDateTime getRevokedAt() {
+        return revokedAt;
+    }
+
+    public void setRevokedAt(LocalDateTime revokedAt) {
+        this.revokedAt = revokedAt;
+    }
+
+    public String getRevocationReason() {
+        return revocationReason;
+    }
+
+    public void setRevocationReason(String revocationReason) {
+        this.revocationReason = revocationReason;
+    }
+
+    public LocalDateTime getRevocationInvalidityDate() {
+        return revocationInvalidityDate;
+    }
+
+    public void setRevocationInvalidityDate(LocalDateTime revocationInvalidityDate) {
+        this.revocationInvalidityDate = revocationInvalidityDate;
+    }
+
+    public String getRenewedFromSerial() {
+        return renewedFromSerial;
+    }
+
+    public void setRenewedFromSerial(String renewedFromSerial) {
+        this.renewedFromSerial = renewedFromSerial;
+    }
+
+    public String getRenewedToSerial() {
+        return renewedToSerial;
+    }
+
+    public void setRenewedToSerial(String renewedToSerial) {
+        this.renewedToSerial = renewedToSerial;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -56,6 +56,9 @@ public class EnrollmentRequest {
     @Column(name = "rejection_comment", columnDefinition = "TEXT")
     private String rejectionComment;
 
+    @Column(name = "renewed_certificate_serial", length = 64)
+    private String renewedCertificateSerial;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -198,6 +201,14 @@ public class EnrollmentRequest {
 
     public void setRejectionComment(String rejectionComment) {
         this.rejectionComment = rejectionComment;
+    }
+
+    public String getRenewedCertificateSerial() {
+        return renewedCertificateSerial;
+    }
+
+    public void setRenewedCertificateSerial(String renewedCertificateSerial) {
+        this.renewedCertificateSerial = renewedCertificateSerial;
     }
 
     public LocalDateTime getCreatedAt() {

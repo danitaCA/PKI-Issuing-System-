@@ -22,13 +22,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
+@org.springframework.test.context.ActiveProfiles("test")
 public class MySqlMigrationAndPersistenceIntegrationTest {
 
     private static boolean mysqlReachable = false;
 
     @BeforeAll
     static void checkMySqlPort() {
-        try (Socket socket = new Socket("localhost", 3306)) {
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                "jdbc:mysql://localhost:3306/pki_test_disposable_db?useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=1000",
+                "pki_app_user", "AppPassSecure123!")) {
             mysqlReachable = true;
         } catch (Exception e) {
             mysqlReachable = false;
